@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 from datetime import datetime as dt
 import backoff
@@ -14,8 +14,7 @@ reddit_prefix = "https://www.reddit.com"
                       requests.exceptions.RequestException)
 def get_comments_since(keyword, after):
     # pd_url = f'https://api.pushshift.io/reddit/search/comment/'
-    pd_url = f'https://api.pushshift.io/reddit/search/comment/?filter=author,body,created_utc,id,link_id,parent_id,' \
-             f'permalink'
+    pd_url = f'https://api.pushshift.io/reddit/search/comment/?filter=author,body,created_utc,id,link_id,parent_id,permalink'
 
     params = {
         'size': 500,
