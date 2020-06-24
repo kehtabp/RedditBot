@@ -78,28 +78,28 @@ def respond_to_reset(reset_id, author, reset_date):
         comment.reply(template)
         print(template)
     except ModuleNotFoundError:
-        print("secrets.py not found")
-        print("create secrets.py file with following variables: secret, password, username, app_id")
+        raise Exception("secrets.py not found, create secrets.py file "
+                        "with following variables: secret, password, username, app_id")
 
 
 def find_resets(last_date=""):
     comments = get_comments_since('"reset the counter"', last_date)
-    for comment in comments:
-        if comment['link_id'] == comment['parent_id']:
-            last_date = comment['created_utc']
-            date = dt.fromtimestamp(last_date)
-            author = comment['author']
-            body = comment['body']
-            reset_id = comment['id']
-            permalink = comment['permalink']
-            post_id = comment['link_id'].split('_')[1]
-            user, created_user = User.get_or_create(username=author)
-            post, created_post = Post.get_or_create(post_id=post_id)
-            real = is_real(body)
-            if real:
-                respond_to_reset(reset_id, author, date)
-            save_reset(reset_id, body, date, post, user, real, permalink)
-    print(f"Executed {len(comments)} times")
+    top_level_comments = [tlc for tlc in comments if tlc['link_id'] == tlc['parent_id']]
+    for comment in top_level_comments:
+        last_date = comment['created_utc']
+        date = dt.fromtimestamp(last_date)
+        author = comment['author']
+        body = comment['body']
+        reset_id = comment['id']
+        permalink = comment['permalink']
+        post_id = comment['link_id'].split('_')[1]
+        user, created_user = User.get_or_create(username=author)
+        post, created_post = Post.get_or_create(post_id=post_id)
+        real = is_real(body)
+        if real:
+            respond_to_reset(reset_id, author, date)
+        save_reset(reset_id, body, date, post, user, real, permalink)
+    print(f"Executed {len(top_level_comments)} times")
     if len(comments) == 500:
         find_resets(last_date)
 
