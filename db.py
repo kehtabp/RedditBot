@@ -24,3 +24,4 @@ class Reset(BaseModel):
     body = TextField()
     date = DateTimeField()
     real = BooleanField()
+    permalink = CharField()

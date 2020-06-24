@@ -1,0 +1,5 @@
+peewee~=3.13.3
+backoff~=1.10.0
+requests~=2.24.0
+praw~=7.0.0
+fuzzywuzzy~=0.18.0
