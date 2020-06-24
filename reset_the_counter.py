@@ -13,8 +13,8 @@ reddit_prefix = "https://www.reddit.com"
 @backoff.on_exception(backoff.expo,
                       requests.exceptions.RequestException)
 def get_comments_since(keyword, after):
-    # pd_url = f'https://api.pushshift.io/reddit/search/comment/'
-    pd_url = f'https://api.pushshift.io/reddit/search/comment/?filter=author,body,created_utc,id,link_id,parent_id,permalink'
+    filter_params = "filter=author,body,created_utc,id,link_id,parent_id,permalink"
+    pd_url = f'https://api.pushshift.io/reddit/search/comment/?{filter_params}'
 
     params = {
         'size': 500,
