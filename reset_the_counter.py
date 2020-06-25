@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
 from datetime import datetime as dt
+
 import backoff
-import requests
-from db import *
 import praw
+import requests
+
+from db import *
 
 negation_list = ["dont", "do not", "don't"]
 reddit_prefix = "https://www.reddit.com"
@@ -76,10 +78,14 @@ def respond_to_reset(reset_id, author, reset_date):
 [Last reset]({reddit_prefix}{last_reset.permalink}) was on {last_reset.date} by /u/{last_reset.user.username}
 """
         comment.reply(template)
-        print(template)
+        # print(template)
     except ModuleNotFoundError:
-        raise Exception("secrets.py not found, create secrets.py file "
-                        "with following variables: secret, password, username, app_id")
+        print("secrets.py not found, create secrets.py file "
+              "with following variables: secret, password, username, app_id")
+
+
+def is_first(post_id):
+    return bool(Post.get_or_none(post_id == post_id))
 
 
 def find_resets(last_date=""):
@@ -93,10 +99,10 @@ def find_resets(last_date=""):
         reset_id = comment['id']
         permalink = comment['permalink']
         post_id = comment['link_id'].split('_')[1]
-        user, created_user = User.get_or_create(username=author)
-        post, created_post = Post.get_or_create(post_id=post_id)
         real = is_real(body)
-        if real:
+        post, created_post = Post.get_or_create(post_id=post_id)
+        user, created_user = User.get_or_create(username=author)
+        if real and created_post:
             respond_to_reset(reset_id, author, date)
         save_reset(reset_id, body, date, post, user, real, permalink)
     print(f"Executed {len(top_level_comments)} times")
@@ -116,15 +122,16 @@ def get_last_reset():
     last_reset = (Reset.select(Reset.id, Reset.date, User.username, Reset.permalink)
                   .limit(1)
                   .join(User)
+                  .where(Reset.real == True)
                   .order_by(Reset.date.desc()))
     for reset in last_reset:
         return reset
 
 
-def top_reseters():
-    print(Reset.filter(real=0).count())
+def top_reseters(num):
+    # print(Reset.filter(real=0).count())
     resets = (User.select(User.username.alias("user"), fn.COUNT(Reset.id).alias("number"))
-              .limit(3)
+              .limit(num)
               .join(Reset)
               .where(Reset.real == True)
               .group_by(User.username)
@@ -139,4 +146,15 @@ def disable_false_resets():
 
 
 # disable_false_resets()
-find_resets(get_last_reset().date)
+def update_about():
+    top = top_reseters(10)
+    for i, user in enumerate(top):
+        print(f"{i+1}. /u/{user.user} – {user.number} resets")
+
+
+def entry_point():
+    find_resets(get_last_reset().date)
+    # update_about()
+
+
+entry_point()
