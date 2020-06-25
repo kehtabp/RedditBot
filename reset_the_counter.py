@@ -80,7 +80,7 @@ def respond_to_reset(reset_id, author, reset_date):
         comment.reply(template)
         # print(template)
     except ModuleNotFoundError:
-        print("secrets.py not found, create secrets.py file "
+        raise ModuleNotFoundError("secrets.py not found, create secrets.py file "
               "with following variables: secret, password, username, app_id")
 
 
