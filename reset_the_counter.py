@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import argparse
 from datetime import datetime as dt
 
 import backoff
@@ -7,6 +8,10 @@ import praw
 import requests
 
 from db import *
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--live', action='store_true')
+args = parser.parse_args()
 
 negation_list = ["dont", "do not", "don't"]
 reddit_prefix = "https://www.reddit.com"
@@ -71,24 +76,24 @@ def respond_to_reset(reset_id, author, reset_date):
         else:
             number_of_resets_text = f"/u/{author} reset the counter {number_of_resets + 1} times."
         time_delta = reset_date - last_reset.date
-        template = f"""Counter is reset! There's been no reset for: {time_delta}
+        body = f"""Counter is reset! There's been no reset for: {time_delta}
 
 {number_of_resets_text}
 
 [Last reset]({reddit_prefix}{last_reset.permalink}) was on {last_reset.date} by /u/{last_reset.user.username}
 """
-        comment.reply(template)
-        # print(template)
+        comment.reply(body)
+        # print(body)
     except ModuleNotFoundError:
         raise ModuleNotFoundError("secrets.py not found, create secrets.py file "
-              "with following variables: secret, password, username, app_id")
+                                  "with following variables: secret, password, username, app_id")
 
 
 def is_first(post_id):
     return bool(Post.get_or_none(post_id == post_id))
 
 
-def find_resets(last_date=""):
+def find_resets(last_date="", live=False):
     comments = get_comments_since('"reset the counter"', last_date)
     top_level_comments = [tlc for tlc in comments if tlc['link_id'] == tlc['parent_id']]
     for comment in top_level_comments:
@@ -102,7 +107,7 @@ def find_resets(last_date=""):
         real = is_real(body)
         post, created_post = Post.get_or_create(post_id=post_id)
         user, created_user = User.get_or_create(username=author)
-        if real and created_post:
+        if real and created_post and live:
             respond_to_reset(reset_id, author, date)
         save_reset(reset_id, body, date, post, user, real, permalink)
     print(f"Executed {len(top_level_comments)} times")
@@ -149,11 +154,11 @@ def disable_false_resets():
 def update_about():
     top = top_reseters(10)
     for i, user in enumerate(top):
-        print(f"{i+1}. /u/{user.user} – {user.number} resets")
+        print(f"{i + 1}. /u/{user.user} – {user.number} resets")
 
 
 def entry_point():
-    find_resets(get_last_reset().date)
+    find_resets(get_last_reset().date, args.live)
     # update_about()
 
 

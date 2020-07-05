@@ -1,7 +1,7 @@
 from peewee import *
 import datetime
 
-db = SqliteDatabase('resets.db')
+db = SqliteDatabase('data/resets.db')
 
 
 class BaseModel(Model):
