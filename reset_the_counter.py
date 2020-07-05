@@ -158,7 +158,11 @@ def update_about():
 
 
 def entry_point():
-    find_resets(get_last_reset().date, args.live)
+    if get_last_reset() is not None:
+        date = get_last_reset().date
+    else:
+        date = None
+    find_resets(date, args.live)
     # update_about()
 
 

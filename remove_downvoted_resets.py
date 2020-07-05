@@ -16,8 +16,8 @@ negation_list = ["dont", "do not", "don't"]
 
 @backoff.on_exception(backoff.expo,
                       requests.exceptions.RequestException)
-def get_user_comments(reddit, author):
-    return reddit.redditor(author).comments.new(limit=20)
+def get_user_comments(reddit_client, author):
+    return reddit_client.redditor(author).comments.new(limit=20)
 
 
 def make_reset_unreal(comment_id):
