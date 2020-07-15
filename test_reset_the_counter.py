@@ -2,9 +2,12 @@ from datetime import datetime
 
 import pytest
 
-from reset_the_counter import respond_to_reset
+from reset_the_counter import is_real
 
 
-def test_respond_to_reset():
-    with pytest.raises(ModuleNotFoundError):
-        respond_to_reset("", "", datetime.now())
+def test_is_real():
+    assert is_real("") == False
+    assert is_real("Reset the counter bois") == True
+    assert is_real("Don't reset the counter") == False
+
+
