@@ -41,9 +41,15 @@ def get_comments_since(keyword, after):
     return data['data']
 
 
-def is_real(body):
+def is_real(body: str):
+    body_casefold = body.casefold()
+    phrase = "reset the counter"
+    if phrase in body_casefold:
+        return False
+    pre_body = body_casefold.split(phrase)[0]
+
     for neg in negation_list:
-        if neg in body.lower():
+        if neg in pre_body.casefold():
             return False
     return True
 
