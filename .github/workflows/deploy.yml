@@ -22,3 +22,4 @@ jobs:
         script: |
           cd /proj/RedditBot/
           git pull
+          test_reset_the_counter.py
