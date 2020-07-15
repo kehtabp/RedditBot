@@ -126,7 +126,7 @@ def find_resets(last_date="", live=False):
             posted += 1
             respond_to_reset(reset_id, author, date)
         save_reset(reset_id, body, date, post, user, real, permalink)
-    print(f"Found new {len(top_level_comments)} comments. Posted {posted} times")
+    print(f"Found {len(top_level_comments)} new comments. Posted {posted} times")
     if len(comments) == 500:
         find_resets(last_date)
 
