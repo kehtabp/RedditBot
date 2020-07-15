@@ -104,10 +104,11 @@ def find_resets(last_date="", live=False):
         reset_id = comment['id']
         permalink = comment['permalink']
         post_id = comment['link_id'].split('_')[1]
-        real = is_real(body)
+        real = False
         post, created_post = Post.get_or_create(post_id=post_id)
         user, created_user = User.get_or_create(username=author)
-        if real and created_post and live:
+        if is_real(body) and created_post and live:
+            real = True
             respond_to_reset(reset_id, author, date)
         save_reset(reset_id, body, date, post, user, real, permalink)
     print(f"Executed {len(top_level_comments)} times")
@@ -163,6 +164,7 @@ def entry_point():
     else:
         date = None
     find_resets(date, args.live)
+    # print(f"It's live {args.live}")
     # update_about()
 
 
