@@ -124,11 +124,11 @@ def save_reset(reset_id, body, date, post, user, real, permalink):
     return reset
 
 
-def get_last_reset():
+def get_last_reset(real=True):
     last_reset = (Reset.select(Reset.id, Reset.date, User.username, Reset.permalink)
                   .limit(1)
                   .join(User)
-                  .where(Reset.real == True)
+                  .where(Reset.real == real)
                   .order_by(Reset.date.desc()))
     for reset in last_reset:
         return reset
@@ -160,7 +160,7 @@ def update_about():
 
 def entry_point():
     if get_last_reset() is not None:
-        date = get_last_reset().date
+        date = get_last_reset(False).date
     else:
         date = None
     find_resets(date, args.live)
