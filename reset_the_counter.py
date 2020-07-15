@@ -107,6 +107,7 @@ def is_first(post_id):
 
 
 def find_resets(last_date="", live=False):
+    posted = 0
     comments = get_comments_since('"reset the counter"', last_date)
     top_level_comments = [tlc for tlc in comments if tlc['link_id'] == tlc['parent_id']]
     for comment in top_level_comments:
@@ -122,9 +123,10 @@ def find_resets(last_date="", live=False):
         user, created_user = User.get_or_create(username=author)
         if is_real(body) and created_post and live:
             real = True
+            posted += 1
             respond_to_reset(reset_id, author, date)
         save_reset(reset_id, body, date, post, user, real, permalink)
-    print(f"Executed {len(top_level_comments)} times")
+    print(f"Found new {len(top_level_comments)} comments. Posted {posted} times")
     if len(comments) == 500:
         find_resets(last_date)
 
@@ -138,11 +140,17 @@ def save_reset(reset_id, body, date, post, user, real, permalink):
 
 
 def get_last_reset(real=True):
-    last_reset = (Reset.select(Reset.id, Reset.date, User.username, Reset.permalink)
-                  .limit(1)
-                  .join(User)
-                  .where(Reset.real == real)
-                  .order_by(Reset.date.desc()))
+    if real:
+        last_reset = (Reset.select(Reset.id, Reset.date, User.username, Reset.permalink)
+                      .limit(1)
+                      .join(User)
+                      .where(Reset.real == True)
+                      .order_by(Reset.date.desc()))
+    else:
+        last_reset = (Reset.select(Reset.id, Reset.date, User.username, Reset.permalink)
+                      .limit(1)
+                      .join(User)
+                      .order_by(Reset.date.desc()))
     for reset in last_reset:
         return reset
 
