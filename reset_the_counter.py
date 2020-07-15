@@ -11,6 +11,7 @@ from db import *
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--live', action='store_true')
+parser.add_argument('--populate', action='store_true')
 args = parser.parse_args()
 
 negation_list = ["dont", "do not", "don't"]
@@ -168,4 +169,5 @@ def entry_point():
     # update_about()
 
 
-entry_point()
+if args.live or args.populate:
+    entry_point()
