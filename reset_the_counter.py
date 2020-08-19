@@ -7,15 +7,24 @@ import backoff
 import praw
 import requests
 
-from db import *
-
 parser = argparse.ArgumentParser()
 parser.add_argument('--live', action='store_true')
 parser.add_argument('--populate', action='store_true')
+parser.add_argument('--test', action='store_true')
 args = parser.parse_args()
 
 negation_list = ["dont", "do not", "don't"]
 reddit_prefix = "https://www.reddit.com"
+if args.live or args.populate:
+    subreddit = 'chess'
+    from db import *
+
+elif args.test:
+    from test_db import *
+
+    subreddit = 'testingground4bots'
+
+phrase = "reset the counter"
 
 
 @backoff.on_exception(backoff.expo,
@@ -27,7 +36,7 @@ def get_comments_since(keyword, after):
     params = {
         'size': 500,
         'after': after,
-        'subreddit': 'chess',
+        'subreddit': subreddit,
         'q': keyword,
         'sort_type': 'created_utc',
         'sort': 'asc'
@@ -43,9 +52,6 @@ def get_comments_since(keyword, after):
 
 def is_real(body: str):
     body_casefold = body.casefold()
-    phrase = "reset the counter"
-    if phrase not in body_casefold:
-        return False
     pre_body = body_casefold.split(phrase)[0]
     is_split = False
     for neg in negation_list:
@@ -96,7 +102,7 @@ def respond_to_reset(reset_id, author, reset_date):
 [Last reset]({reddit_prefix}{last_reset.permalink}) was on {last_reset.date} by /u/{last_reset.user.username}
 """
         comment.reply(body)
-        # print(body)
+        print(f"Responding to {reset_id}")
     except ModuleNotFoundError:
         raise ModuleNotFoundError("secrets.py not found, create secrets.py file "
                                   "with following variables: secret, password, username, app_id")
@@ -106,29 +112,56 @@ def is_first(post_id):
     return bool(Post.get_or_none(post_id == post_id))
 
 
-def find_resets(last_date="", live=False):
+def find_resets(comments):
     posted = 0
-    comments = get_comments_since('"reset the counter"', last_date)
-    top_level_comments = [tlc for tlc in comments if tlc['link_id'] == tlc['parent_id']]
-    for comment in top_level_comments:
+    last_date = ""
+    for comment in comments:
+        body = comment['body']
+        if comment['link_id'] != comment['parent_id'] or phrase not in body.casefold():
+            continue
         last_date = comment['created_utc']
         date = dt.fromtimestamp(last_date)
         author = comment['author']
-        body = comment['body']
         reset_id = comment['id']
         permalink = comment['permalink']
         post_id = comment['link_id'].split('_')[1]
-        real = False
         post, created_post = Post.get_or_create(post_id=post_id)
         user, created_user = User.get_or_create(username=author)
-        if is_real(body) and created_post and live:
-            real = True
+        real = is_real(body) and created_post
+        if real and (args.live or args.test):
             posted += 1
             respond_to_reset(reset_id, author, date)
         save_reset(reset_id, body, date, post, user, real, permalink)
-    print(f"Found {len(top_level_comments)} new comments. Posted {posted} times")
+    print(f"Found {len(comments)} new comments. Posted {posted} times")
     if len(comments) == 500:
-        find_resets(last_date)
+        find_resets(get_comments_since('"reset the counter"', last_date))
+    monitor()
+
+
+def monitor():
+    from secret import secret, password, username, app_id
+    reddit = praw.Reddit(client_id=app_id,
+                         client_secret=secret,
+                         username=username,
+                         password=password,
+                         user_agent="Reset Bot")
+    comments = reddit.subreddit(subreddit).stream.comments()
+    for comment in comments:
+        body = comment.body
+        if comment.link_id != comment.parent_id or phrase not in comment.body.casefold():
+            continue
+        last_date = comment.created_utc
+        date = dt.fromtimestamp(last_date)
+        author = comment.author
+        reset_id = comment.id
+        permalink = comment.permalink
+        post_id = comment.link_id.split('_')[1]
+        post, created_post = Post.get_or_create(post_id=post_id)
+        user, created_user = User.get_or_create(username=author)
+        real = is_real(body) and created_post
+        if real and (args.live or args.test):
+            respond_to_reset(reset_id, author, date)
+        save_reset(reset_id, body, date, post, user, real, permalink)
 
 
 def save_reset(reset_id, body, date, post, user, real, permalink):
@@ -184,10 +217,12 @@ def entry_point():
         date = get_last_reset(False).date
     else:
         date = None
-    find_resets(date, args.live)
+    find_resets(get_comments_since('"reset the counter"', date))
     # print(f"It's live {args.live}")
     # update_about()
 
 
-if args.live or args.populate:
+if args.live or args.populate or args.test:
     entry_point()
+else:
+    print("Supply some args please")

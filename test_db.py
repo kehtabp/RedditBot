@@ -1,6 +1,7 @@
 from peewee import *
 
-db = SqliteDatabase('data/resets.db')
+db = SqliteDatabase('data/test.db')
+
 
 class BaseModel(Model):
     class Meta:
