@@ -1,17 +1,22 @@
 #!/usr/bin/env python3
 
 import argparse
+import logging
 from datetime import datetime as dt
 
 import backoff
 import praw
 import requests
 
+
+max_size = 100
+
 parser = argparse.ArgumentParser()
 parser.add_argument('--live', action='store_true')
 parser.add_argument('--populate', action='store_true')
 parser.add_argument('--test', action='store_true')
 args = parser.parse_args()
+logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.INFO)
 
 negation_list = ["dont", "do not", "don't"]
 reddit_prefix = "https://www.reddit.com"
@@ -34,7 +39,7 @@ def get_comments_since(keyword, after):
     pd_url = f'https://api.pushshift.io/reddit/search/comment/?{filter_params}'
 
     params = {
-        'size': 500,
+        'size': max_size,
         'after': after,
         'subreddit': subreddit,
         'q': keyword,
@@ -102,8 +107,9 @@ def respond_to_reset(reset_id, author, reset_date):
 [Last reset]({reddit_prefix}{last_reset.permalink}) was on {last_reset.date} by /u/{last_reset.user.username}
 """
         comment.reply(body)
-        print(f"Responding to {reset_id}")
+        logging.info(f"Responding to {reset_id}")
     except ModuleNotFoundError:
+        logging.critical("secrets.py  not found")
         raise ModuleNotFoundError("secrets.py not found, create secrets.py file "
                                   "with following variables: secret, password, username, app_id")
 
@@ -132,13 +138,14 @@ def find_resets(comments):
             posted += 1
             respond_to_reset(reset_id, author, date)
         save_reset(reset_id, body, date, post, user, real, permalink)
-    print(f"Found {len(comments)} new comments. Posted {posted} times")
-    if len(comments) == 500:
+    logging.info(f"Found {len(comments)} new comments. Posted {posted} times")
+    if len(comments) == max_size:
         find_resets(get_comments_since('"reset the counter"', last_date))
     monitor()
 
 
 def monitor():
+    logging.info("Entering monitoring mode.")
     from secret import secret, password, username, app_id
     reddit = praw.Reddit(client_id=app_id,
                          client_secret=secret,
@@ -166,7 +173,8 @@ def monitor():
 
 def save_reset(reset_id, body, date, post, user, real, permalink):
     # print(date, user.username, reset_id, post.post_id, real)
-
+    logging.info(
+        f"{date}: Saving reset to db. User: {user.username} Reset id: {reset_id}, Post id:{post.post_id}, Real: {real}")
     defaults = {'user': user, 'date': date, 'body': body, 'post': post, 'real': real, 'permalink': permalink}
     reset, create = Reset.get_or_create(id=reset_id, defaults=defaults)
     return reset
@@ -218,7 +226,7 @@ def entry_point():
     else:
         date = None
     find_resets(get_comments_since('"reset the counter"', date))
-    # print(f"It's live {args.live}")
+    logging.log(f"It's live {args.live}")
     # update_about()
 
 
