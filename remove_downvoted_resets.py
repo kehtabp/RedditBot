@@ -11,8 +11,6 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--live', action='store_true')
 args = parser.parse_args()
 
-negation_list = ["dont", "do not", "don't"]
-
 
 @backoff.on_exception(backoff.expo,
                       requests.exceptions.RequestException)
@@ -40,11 +38,12 @@ try:
         # print(comment.score)
         if comment.score < 1:
             parent_id = comment.parent_id.split('_')[1]
-            if make_reset_unreal(parent_id) and args.live:
-                print(f"removing {parent_id} for being downvoted with score: {comment.score}")
-                body_parts = comment.body.split("\n\n")
-                removed_body = f"This reset has been downvoted so it won't count\n\n{body_parts[2]}"
-                comment.edit(removed_body)
+            if args.live:
+                if make_reset_unreal(parent_id):
+                    print(f"removing {parent_id} for being downvoted with score: {comment.score}")
+                    body_parts = comment.body.split("\n\n")
+                    removed_body = f"This reset has been downvoted so it won't count\n\n{body_parts[2]}"
+                    comment.edit(removed_body)
 
 
 except ModuleNotFoundError:
