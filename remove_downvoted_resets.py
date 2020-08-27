@@ -34,6 +34,7 @@ try:
                          username=username,
                          password=password,
                          user_agent="Reset Bot")
+    reddit.validate_on_submit = True
     for comment in get_user_comments(reddit, "r_chess_bot"):
         # print(comment.score)
         if comment.score < 1:
