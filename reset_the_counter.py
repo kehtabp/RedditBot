@@ -56,8 +56,12 @@ def get_comments_since(keyword, after):
     return data['data']
 
 
-def is_real(body: str):
-    body_casefold = body.casefold()
+def is_real(reset):
+    body_casefold = reset.body.casefold()
+    if ">!" in body_casefold:
+        reset.spoiler = ">!"
+    else:
+        reset.spoiler = ""
     pre_body = body_casefold.split(phrase)[0]
     is_split = False
     for neg in negation_list:
@@ -96,17 +100,18 @@ def respond_to_reset(reset):
             return
         comment = reddit.comment(id=reset.id)
         number_of_resets = get_user_reset_number(reset.author)
+
         if number_of_resets is None:
             number_of_resets_text = f"Congratulations on your first reset /u/{reset.author}!"
         else:
             number_of_resets_text = f"/u/{reset.author} reset the counter {number_of_resets + 1} times."
         time_delta = humanize.precisedelta(reset.date - last_reset.date)
 
-        body = f"""Counter is reset! There's been no reset for: {time_delta}
+        body = f"""{reset.spoiler}Counter is reset! There's been no reset for: {time_delta}
 
-{number_of_resets_text}
+{reset.spoiler}{number_of_resets_text}
 
-[Last reset]({reddit_prefix}{last_reset.permalink}) was on {last_reset.date} by /u/{last_reset.user.username}
+{reset.spoiler}[Last reset]({reddit_prefix}{last_reset.permalink}) was on {last_reset.date} by /u/{last_reset.user.username}
 """
         comment.reply(body)
         logging.info(f"Responding to {reset.id}")
@@ -138,7 +143,7 @@ def find_resets(comments):
         reset.post_id = comment['link_id'].split('_')[1]
         reset.post, created_post = Post.get_or_create(post_id=reset.post_id)
         reset.user, created_user = User.get_or_create(username=reset.author)
-        reset.real = is_real(reset.body) and created_post
+        reset.real = is_real(reset) and created_post
         if reset.real and (args.live or args.test):
             posted += 1
             respond_to_reset(reset)
@@ -174,7 +179,7 @@ def monitor():
 
         reset.post, created_post = Post.get_or_create(post_id=reset.post_id)
         reset.user, created_user = User.get_or_create(username=reset.author)
-        reset.real = is_real(reset.body) and created_post
+        reset.real = is_real(reset) and created_post
         if reset.real and (args.live or args.test):
             respond_to_reset(reset)
         save_reset(reset)
