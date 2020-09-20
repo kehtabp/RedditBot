@@ -2,12 +2,13 @@
 
 import argparse
 import logging
+import types
 from datetime import datetime as dt
 
 import backoff
+import humanize as humanize
 import praw
 import requests
-
 
 max_size = 100
 
@@ -81,7 +82,7 @@ def get_user_reset_number(author):
         return count.number
 
 
-def respond_to_reset(reset_id, author, reset_date):
+def respond_to_reset(reset):
     try:
         from secret import secret, password, username, app_id
 
@@ -93,13 +94,14 @@ def respond_to_reset(reset_id, author, reset_date):
         last_reset = get_last_reset()
         if last_reset is None:
             return
-        comment = reddit.comment(id=reset_id)
-        number_of_resets = get_user_reset_number(author)
+        comment = reddit.comment(id=reset.id)
+        number_of_resets = get_user_reset_number(reset.author)
         if number_of_resets is None:
-            number_of_resets_text = f"Congratulations on your first reset /u/{author}!"
+            number_of_resets_text = f"Congratulations on your first reset /u/{reset.author}!"
         else:
-            number_of_resets_text = f"/u/{author} reset the counter {number_of_resets + 1} times."
-        time_delta = reset_date - last_reset.date
+            number_of_resets_text = f"/u/{reset.author} reset the counter {number_of_resets + 1} times."
+        time_delta = humanize.precisedelta(reset.date - last_reset.date)
+
         body = f"""Counter is reset! There's been no reset for: {time_delta}
 
 {number_of_resets_text}
@@ -107,7 +109,7 @@ def respond_to_reset(reset_id, author, reset_date):
 [Last reset]({reddit_prefix}{last_reset.permalink}) was on {last_reset.date} by /u/{last_reset.user.username}
 """
         comment.reply(body)
-        logging.info(f"Responding to {reset_id}")
+        logging.info(f"Responding to {reset.id}")
     except ModuleNotFoundError:
         logging.critical("secrets.py  not found")
         raise ModuleNotFoundError("secrets.py not found, create secrets.py file "
@@ -120,25 +122,28 @@ def is_first(post_id):
 
 def find_resets(comments):
     posted = 0
+    found = 0
     last_date = ""
     for comment in comments:
-        body = comment['body']
-        if comment['link_id'] != comment['parent_id'] or phrase not in body.casefold():
+        reset = types.SimpleNamespace()
+        reset.body = comment['body']
+        if comment['link_id'] != comment['parent_id'] or phrase not in reset.body.casefold():
             continue
+        found += 1
         last_date = comment['created_utc']
-        date = dt.fromtimestamp(last_date)
-        author = comment['author']
-        reset_id = comment['id']
-        permalink = comment['permalink']
-        post_id = comment['link_id'].split('_')[1]
-        post, created_post = Post.get_or_create(post_id=post_id)
-        user, created_user = User.get_or_create(username=author)
-        real = is_real(body) and created_post
-        if real and (args.live or args.test):
+        reset.date = dt.fromtimestamp(last_date)
+        reset.author = comment['author']
+        reset.id = comment['id']
+        reset.permalink = comment['permalink']
+        reset.post_id = comment['link_id'].split('_')[1]
+        reset.post, created_post = Post.get_or_create(post_id=reset.post_id)
+        reset.user, created_user = User.get_or_create(username=reset.author)
+        reset.real = is_real(reset.body) and created_post
+        if reset.real and (args.live or args.test):
             posted += 1
-            respond_to_reset(reset_id, author, date)
-        save_reset(reset_id, body, date, post, user, real, permalink)
-    logging.info(f"Found {len(comments)} new comments. Posted {posted} times")
+            respond_to_reset(reset)
+        save_reset(reset)
+    logging.info(f"Found {found} new comments. Posted {posted} times")
     if len(comments) == max_size:
         find_resets(get_comments_since('"reset the counter"', last_date))
     monitor()
@@ -154,29 +159,37 @@ def monitor():
                          user_agent="Reset Bot")
     comments = reddit.subreddit(subreddit).stream.comments()
     for comment in comments:
-        body = comment.body
+        reset = types.SimpleNamespace()
+        reset.body = comment.body
         if comment.link_id != comment.parent_id or phrase not in comment.body.casefold():
             continue
+
         last_date = comment.created_utc
-        date = dt.fromtimestamp(last_date)
-        author = comment.author
-        reset_id = comment.id
-        permalink = comment.permalink
-        post_id = comment.link_id.split('_')[1]
-        post, created_post = Post.get_or_create(post_id=post_id)
-        user, created_user = User.get_or_create(username=author)
-        real = is_real(body) and created_post
-        if real and (args.live or args.test):
-            respond_to_reset(reset_id, author, date)
-        save_reset(reset_id, body, date, post, user, real, permalink)
+
+        reset.date = dt.fromtimestamp(last_date)
+        reset.author = comment.author
+        reset.id = comment.id
+        reset.permalink = comment.permalink
+        reset.post_id = comment.link_id.split('_')[1]
+
+        reset.post, created_post = Post.get_or_create(post_id=reset.post_id)
+        reset.user, created_user = User.get_or_create(username=reset.author)
+        reset.real = is_real(reset.body) and created_post
+        if reset.real and (args.live or args.test):
+            respond_to_reset(reset)
+        save_reset(reset)
 
 
-def save_reset(reset_id, body, date, post, user, real, permalink):
+def save_reset(reset):
     # print(date, user.username, reset_id, post.post_id, real)
-    logging.info(
-        f"{date}: Saving reset to db. User: {user.username} Reset id: {reset_id}, Post id:{post.post_id}, Real: {real}")
-    defaults = {'user': user, 'date': date, 'body': body, 'post': post, 'real': real, 'permalink': permalink}
-    reset, create = Reset.get_or_create(id=reset_id, defaults=defaults)
+
+    defaults = {'user': reset.user, 'date': reset.date, 'body': reset.body, 'post': reset.post, 'real': reset.real,
+                'permalink': reset.permalink}
+    reset, created = Reset.get_or_create(id=reset.id, defaults=defaults)
+    if created:
+        logging.info(
+            f"{reset.date}: Saving reset to db. User: {reset.user.username} Reset id: {reset.id}, "
+            f"Post id:{reset.post.post_id}, Real: {reset.real}")
     return reset
 
 
@@ -197,7 +210,6 @@ def get_last_reset(real=True):
 
 
 def top_reseters(num):
-    # print(Reset.filter(real=0).count())
     resets = (User.select(User.username.alias("user"), fn.COUNT(Reset.id).alias("number"))
               .limit(num)
               .join(Reset)
@@ -226,8 +238,8 @@ def entry_point():
     else:
         date = None
     find_resets(get_comments_since('"reset the counter"', date))
-    logging.log(f"It's live {args.live}")
-    # update_about()
+    logging.info(f"It's live {args.live}")
+    # TODO update_about()
 
 
 if args.live or args.populate or args.test:
