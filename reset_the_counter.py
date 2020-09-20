@@ -60,8 +60,10 @@ def is_real(reset):
     body_casefold = reset.body.casefold()
     if ">!" in body_casefold:
         reset.spoiler = ">!"
+        reset.spoiler_close = "!<"
     else:
         reset.spoiler = ""
+        reset.spoiler_close = ""
     pre_body = body_casefold.split(phrase)[0]
     is_split = False
     for neg in negation_list:
@@ -107,12 +109,11 @@ def respond_to_reset(reset):
             number_of_resets_text = f"/u/{reset.author} reset the counter {number_of_resets + 1} times."
         time_delta = humanize.precisedelta(reset.date - last_reset.date)
 
-        body = f"""{reset.spoiler}Counter is reset! There's been no reset for: {time_delta}
+        body = f"""{reset.spoiler}Counter is reset! There's been no reset for: {time_delta}{reset.spoiler_close}
 
-{reset.spoiler}{number_of_resets_text}
+{reset.spoiler}{number_of_resets_text}{reset.spoiler_close}
 
-{reset.spoiler}[Last reset]({reddit_prefix}{last_reset.permalink}) was on {last_reset.date} by /u/{last_reset.user.username}
-"""
+{reset.spoiler}[Last reset]({reddit_prefix}{last_reset.permalink}) was on {last_reset.date} by /u/{last_reset.user.username}{reset.spoiler_close}"""
         comment.reply(body)
         logging.info(f"Responding to {reset.id}")
     except ModuleNotFoundError:
