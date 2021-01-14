@@ -19,7 +19,7 @@ parser.add_argument('--test', action='store_true')
 args = parser.parse_args()
 logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.INFO)
 
-negation_list = ["dont", "do not", "don't","can't","cant","Shouldn't","Shouldnt]
+negation_list = ["dont", "do not", "don't","can't","cant","Shouldn't","Shouldnt"]
 reddit_prefix = "https://www.reddit.com"
 if args.live or args.populate:
     subreddit = 'chess'
